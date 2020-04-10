@@ -55,14 +55,13 @@ class App extends Component {
       })
     );
     if (result.data !== null && result.data.updateNote !== null) {
-      const updatedNotes = notes.map(note => {
-        if (note.id === result.data.updateNote.id) {
-          note.note = result.data.updateNote.note;
-        }
-
-        return note;
-      });
-
+      const updatedNote = result.data.updateNote;
+      const index = notes.findIndex(note => note.id === updatedNote.id);
+      const updatedNotes = [
+        ...notes.slice(0, index),
+        updatedNote,
+        ...notes.slice(index + 1)
+      ];
       this.setState({
         notes: updatedNotes,
         currentNote: Object.assign({}, emptyNote),
