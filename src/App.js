@@ -13,14 +13,19 @@ class App extends Component {
     this.setState({ note: event.target.value });
   };
 
-  handleAddNote = event => {
+  handleAddNote = async event => {
     event.preventDefault();
-    const { note } = this.state;
-    API.graphql(graphqlOperation(createNote, { input: { note } }));
+    const { note, notes } = this.state;
+    const result = await API.graphql(
+      graphqlOperation(createNote, { input: { note } })
+    );
+    const newNote = result.data.createNote;
+    const updatesNotes = [newNote, ...notes];
+    this.setState({ notes: updatesNotes, note: "" });
   };
 
   render() {
-    const { notes } = this.state;
+    const { note, notes } = this.state;
     return (
       <div className="flex flex-column items-center justify-center pa3 bg-washed-red">
         <h1 className="code f2-1">Amplify Notetaker</h1>
@@ -30,6 +35,7 @@ class App extends Component {
             className="pa2 f4"
             placeholder="write your note"
             onChange={this.handleChangeNote}
+            value={note}
           />
           <button className="pa2 f4" type="submit">
             Add Note
