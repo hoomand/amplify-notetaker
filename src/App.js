@@ -1,7 +1,11 @@
 import React, { Component } from "react";
 import { API, Auth, graphqlOperation } from "aws-amplify";
 import { createNote, deleteNote, updateNote } from "./graphql/mutations";
-import { onCreateNote, onDeleteNote } from "./graphql/subscriptions";
+import {
+  onCreateNote,
+  onDeleteNote,
+  onUpdateNote
+} from "./graphql/subscriptions";
 import { listNotes } from "./graphql/queries";
 import { withAuthenticator } from "aws-amplify-react";
 
@@ -46,11 +50,33 @@ class App extends Component {
         this.setState({ notes: updatedNotes });
       }
     });
+
+    this.updateNoteListener = API.graphql(
+      graphqlOperation(onUpdateNote, {
+        owner: (await this.getUser()).username
+      })
+    ).subscribe({
+      next: noteData => {
+        const { notes } = this.state;
+        const updatedNote = noteData.value.data.onUpdateNote;
+
+        const index = notes.findIndex(note => note.id === updatedNote.id);
+        const updatedNotes = [
+          ...notes.slice(0, index),
+          updatedNote,
+          ...notes.slice(index + 1)
+        ];
+        this.setState({
+          notes: updatedNotes
+        });
+      }
+    });
   }
 
   componentWillUnmount() {
     this.createNoteListener.unsubscribe();
     this.deleteNoteListener.unsubscribe();
+    this.updateNoteListener.unsubscribe();
   }
 
   getNotes = async () => {
@@ -86,26 +112,16 @@ class App extends Component {
 
   handleUpdateNote = async event => {
     event.preventDefault();
-    const { currentNote, emptyNote, notes } = this.state;
-    const result = await API.graphql(
+    const { currentNote, emptyNote } = this.state;
+    await API.graphql(
       graphqlOperation(updateNote, {
         input: { note: currentNote.note, id: currentNote.id }
       })
     );
-    if (result.data !== null && result.data.updateNote !== null) {
-      const updatedNote = result.data.updateNote;
-      const index = notes.findIndex(note => note.id === updatedNote.id);
-      const updatedNotes = [
-        ...notes.slice(0, index),
-        updatedNote,
-        ...notes.slice(index + 1)
-      ];
-      this.setState({
-        notes: updatedNotes,
-        currentNote: Object.assign({}, emptyNote),
-        formButtonText: "Add"
-      });
-    }
+    this.setState({
+      currentNote: Object.assign({}, emptyNote),
+      formButtonText: "Add"
+    });
   };
 
   handleDeleteNote = async itemId => {
