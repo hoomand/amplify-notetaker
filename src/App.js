@@ -1,6 +1,7 @@
 import React, { Component } from "react";
-import { API, graphqlOperation } from "aws-amplify";
+import { API, Auth, graphqlOperation } from "aws-amplify";
 import { createNote, deleteNote, updateNote } from "./graphql/mutations";
+import { onCreateNote } from "./graphql/subscriptions";
 import { listNotes } from "./graphql/queries";
 import { withAuthenticator } from "aws-amplify-react";
 
@@ -12,10 +13,34 @@ class App extends Component {
     formButtonText: "Add"
   };
 
+  getUser = async () => {
+    return await Auth.currentUserInfo();
+  };
+
   async componentDidMount() {
+    this.getNotes();
+
+    API.graphql(
+      graphqlOperation(onCreateNote, {
+        owner: (await this.getUser()).username
+      })
+    ).subscribe({
+      next: noteData => {
+        console.log("subscriber", noteData);
+        const newNote = noteData.value.data.onCreateNote;
+        const prevNotes = this.state.notes.filter(
+          note => note.id !== newNote.id
+        );
+        const updatedNotes = [newNote, ...prevNotes];
+        this.setState({ notes: updatedNotes });
+      }
+    });
+  }
+
+  getNotes = async () => {
     const result = await API.graphql(graphqlOperation(listNotes));
     this.setState({ notes: result.data.listNotes.items });
-  }
+  };
 
   handleNote = async noteId => {
     const { notes } = this.state;
@@ -34,14 +59,11 @@ class App extends Component {
 
   handleAddNote = async event => {
     event.preventDefault();
-    const { currentNote, emptyNote, notes } = this.state;
-    const result = await API.graphql(
+    const { currentNote, emptyNote } = this.state;
+    await API.graphql(
       graphqlOperation(createNote, { input: { note: currentNote.note } })
     );
-    const newNote = result.data.createNote;
-    const updatesNotes = [newNote, ...notes];
     this.setState({
-      notes: updatesNotes,
       currentNote: Object.assign({}, emptyNote)
     });
   };
